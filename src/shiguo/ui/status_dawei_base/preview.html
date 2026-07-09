@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>大魏芳华 · 状态栏预览</title>
+  <style>
+    * { box-sizing: border-box; }
+    .preview-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .preview-bar {
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 14px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      background: rgba(18,18,22,.98);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    .preview-bar-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+    }
+    .preview-bar-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+    }
+    .preview-bar-label {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      color: #b89465;
+      padding: 2px 0;
+      min-width: 2.8em;
+    }
+    .preview-bar-label.tab { color: #6a8caf; }
+    .preview-bar h1 {
+      margin: 0 12px 0 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #b89465;
+    }
+    .preview-bar p {
+      margin: 0;
+      font-size: 12px;
+      color: #a1a1aa;
+      flex: 1 1 280px;
+    }
+    .preview-bar button {
+      border: 1px solid rgba(184,148,101,.35);
+      background: rgba(184,148,101,.12);
+      color: #f0e6d8;
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .preview-bar button.on {
+      background: #b89465;
+      color: #1a1410;
+      border-color: #b89465;
+    }
+    .preview-bar button.tab-btn {
+      border-color: rgba(106,140,175,.4);
+      background: rgba(106,140,175,.12);
+    }
+    .preview-bar button.tab-btn.on {
+      background: #6a8caf;
+      color: #0f1418;
+    }
+    .preview-bar button.viewport-btn {
+      border-color: rgba(120, 168, 120, .4);
+      background: rgba(120, 168, 120, .12);
+    }
+    .preview-bar button.viewport-btn.on {
+      background: #78a878;
+      color: #101410;
+      border-color: #78a878;
+    }
+    .preview-size-hint {
+      font-size: 11px;
+      color: #71717a;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .preview-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 12px 16px 16px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(184, 148, 101, .08), transparent 42%),
+        #0a0a0c;
+    }
+    .preview-frame-wrap {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-height: 0;
+      height: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: #0f0f11;
+    }
+    .preview-stage[data-viewport="desktop"] .preview-frame-wrap {
+      max-width: min(1280px, 100%);
+      min-height: min(720px, calc(100vh - 200px));
+    }
+    .preview-stage[data-viewport="tablet"] .preview-frame-wrap {
+      width: min(834px, 100%);
+      max-width: 834px;
+      min-height: min(1024px, calc(100vh - 200px));
+    }
+    .preview-stage[data-viewport="mobile"] .preview-frame-wrap {
+      width: min(390px, 100%);
+      max-width: 390px;
+      height: 844px;
+      min-height: 844px;
+    }
+    #frame {
+      flex: 1 1 auto;
+      width: 100%;
+      border: 0;
+      min-height: 0;
+      background: #0f0f11;
+    }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #121214;
+      color: #ececed;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-shell">
+  <header class="preview-bar">
+    <div class="preview-bar-head">
+      <h1>状态栏预览</h1>
+      <p>请用下方<b>场景</b>按钮切换测试数据（不是 iframe 里的 Tab）。地址须为 <code style="font-size:11px;color:#d4b896">preview.html</code></p>
+    </div>
+    <div class="preview-bar-group">
+      <span class="preview-bar-label">场景</span>
+      <button type="button" class="scene on" data-scene="sendopts">快捷语样例</button>
+      <button type="button" class="scene" data-scene="tags">标签样例</button>
+      <button type="button" class="scene" data-scene="tasks">任务样例</button>
+      <button type="button" class="scene" data-scene="jiajuan">家眷样例</button>
+      <button type="button" class="scene" data-scene="jiyiCard">机宜去重</button>
+      <button type="button" class="scene" data-scene="newEvents">新增事件</button>
+      <button type="button" class="scene" data-scene="luoyang">洛阳·剑舞</button>
+      <button type="button" class="scene" data-scene="pingyuan">平原·守孝</button>
+      <button type="button" class="scene" data-scene="heavy">长局压测</button>
+    </div>
+    <div class="preview-bar-group">
+      <span class="preview-bar-label">视口</span>
+      <button type="button" class="viewport-btn on" data-viewport="desktop">桌面 PC</button>
+      <button type="button" class="viewport-btn" data-viewport="tablet">平板</button>
+      <button type="button" class="viewport-btn" data-viewport="mobile">手机</button>
+      <span class="preview-size-hint" id="viewport-hint">桌面 · 全宽</span>
+    </div>
+    <div class="preview-bar-group">
+      <span class="preview-bar-label tab">Tab</span>
+      <button type="button" class="tab-btn" data-tab="tianji">天机</button>
+      <button type="button" class="tab-btn on" data-tab="fengxin">机宜</button>
+      <button type="button" class="tab-btn" data-tab="fengwen">风闻</button>
+      <button type="button" class="tab-btn" data-tab="lishi">历事</button>
+      <button type="button" class="tab-btn" data-tab="fangming">家眷</button>
+      <button type="button" class="tab-btn" data-tab="fende">粉黛</button>
+    </div>
+  </header>
+  <div class="preview-stage" id="preview-stage" data-viewport="desktop">
+    <div class="preview-frame-wrap" id="preview-frame-wrap">
+      <iframe id="frame" title="大魏芳华状态栏"></iframe>
+    </div>
+  </div>
+  </div>
+  <script>
+    var PREVIEW_KEY = '__dwf_preview_stat__';
+    var TAB_KEY = '__dwf_preview_tab__';
+    var SCENE_KEY = '__dwf_preview_scene__';
+    var VIEWPORT_KEY = '__dwf_preview_viewport__';
+    var VIEWPORTS = {
+      desktop: { label: '桌面 · 全宽', width: null },
+      tablet: { label: '平板 · 834px', width: 834 },
+      mobile: { label: '手机 · 390px', width: 390 },
+    };
+
+    var query = new URLSearchParams(location.search || '');
+    var queryScene = query.get('scene');
+    var queryTab = query.get('tab');
+    var queryViewport = query.get('viewport');
+
+    var currentViewport = queryViewport || sessionStorage.getItem(VIEWPORT_KEY) || 'desktop';
+    if (!VIEWPORTS[currentViewport]) currentViewport = 'desktop';
+    var previewStage = document.getElementById('preview-stage');
+    var viewportHint = document.getElementById('viewport-hint');
+    var frameWrap = document.getElementById('preview-frame-wrap');
+
+    function jiyiItem(overrides) {
+      return Object.assign({
+        因由: '预览事件',
+        火急: 3,
+        相关人物: '',
+        建议地点: '预览地点',
+        开启行程: 1,
+        截止行程: 40,
+        目标: { 目标1: '完成预览目标' },
+        演完写入: {},
+      }, overrides || {});
+    }
+
+    var BASE = {
+      朝局: {
+        皇帝: '曹芳',
+        法统: '魏室',
+        权柄: '曹爽',
+        纪年: { 年号: '景初', 年数: '三', 干支: '戊午' },
+      },
+      命途: { 标签: ['仕进'], 已锁: [], 主导: '潜龙' },
+      命途印记: {},
+      鼎革纪: { 洛阳权柄: '司马懿控朝', 禅代: '未发生' },
+      任务录: { 当前: {}, 已放弃: {} },
+      风闻录: {
+        机宜: { 津渡: {}, 支汊: {} },
+        邸报: { 预览: '邸报条目：朝局风动，边关军情频传。' },
+        里巷: { 预览: '坊间传闻：驿城酒肆里有人议论清河旧案。' },
+        预制选项: {
+          日常句: '整理眼下头绪，理清面前之事再定。',
+          桃色句: '向身旁的女眷靠近些，试探她一句体己话。',
+        },
+      },
+      房名次: {},
+      子嗣: {},
+      履历: {},
+      群芳录: {
+        朝云: {
+          是否登场: true,
+          当前位置: '洛阳',
+          好感度: 10,
+          好感度上限: 100,
+          服饰: '',
+          外貌: '',
+          当前状态: '候场',
+          心里想法: '',
+          心情: '平静',
+          与user关系: '相识',
+          有孕: false,
+          子嗣数: 0,
+        },
+      },
+    };
+
+    var SCENES = {
+      sendopts: {
+        世界与剧情: {
+          行程: 12,
+          当前地点: '清河郡·驿城',
+          已终局: false,
+          天时: { 显示: '景初三年六月下旬·昼' },
+        },
+        主角: { 当前位置: '清河郡·驿城', 当前状态: '兄长被困，嫂子在侧奔走' },
+        主角势力: { 官爵: '', 阵营: '无', 部曲: 0, 根基: '平原秦氏庄园' },
+        任务录: {
+          当前: {
+            兄困清河: {
+              id: '兄困清河',
+              类型: '津渡',
+              状态: '进行中',
+              开始行程: 6,
+              截止行程: 14,
+              因由: '津渡·兄困清河：兄长秦宽陷在清河驿城官司里，嫂张氏与卢氏在外奔走营救。',
+              火急: 4,
+              相关人物: '卢氏、张氏',
+              建议地点: '清河郡·驿城',
+              目标: {
+                目标1: {
+                  内容: '赶赴清河驿城',
+                  选项: '我这就赶往清河驿城，先打听兄长秦宽究竟陷在何处。',
+                  完成: true,
+                },
+                目标2: {
+                  内容: '查明秦宽被困缘由',
+                  选项: '我去驿城衙门与客栈逐一打听，务必查清兄长被困的缘由。',
+                  完成: false,
+                },
+                目标3: {
+                  内容: '救出秦宽或定下明确处置',
+                  选项: '我愿出资疏通关节，先把兄长捞出来，再论后续处置。',
+                  完成: false,
+                },
+              },
+              演完写入: { 命途标签: ['仕进'], 命途印记: { 清河: '救人' } },
+            },
+          },
+          已放弃: {},
+        },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              麦田董氏: jiyiItem({
+                因由: '支汊·麦田董氏：庄邻董氏携礼登门，旧恩新怨一并提起。',
+                相关人物: '董氏',
+                建议地点: '平原郡·秦家庄',
+                开启行程: 1,
+                截止行程: 8,
+                目标: {
+                  目标1: '接触董氏',
+                  目标2: '听明报恩来意',
+                  目标3: '收下心意或礼送出门',
+                },
+                选项: {
+                  目标1: '我入麦田相助，先看清董氏一家处境。',
+                  目标2: '我与董氏把话说开，听明她家的难处。',
+                  目标3: '我收下她报恩的心意，或礼送出门，全看情理。',
+                },
+              }),
+            },
+          },
+          邸报: { 清河: '驿城有吏员拿人，秦氏子弟牵涉官司。' },
+          里巷: { 驿城: '酒肆中人议论，秦宽或因田地争讼被扣。' },
+        },
+      },
+      tags: {
+        世界与剧情: {
+          行程: 20,
+          当前地点: '预览·机宜标签',
+          已终局: false,
+          路线预判: { 倾向: '一统天下', 主导: '潜龙', 匹配度: 72, id: 'preview' },
+          天时: { 显示: '景初三年·预览' },
+        },
+        主角: { 当前位置: '预览场景', 当前状态: '检视全部卡片标签样式' },
+        主角势力: { 官爵: '掾属', 阵营: '曹爽', 部曲: 0, 根基: '洛阳寓所' },
+        风闻录: {
+          机宜: {
+            津渡: {
+              '预览·路线': jiyiItem({
+                因由: '津渡·预览路线：山林线专属路线标签',
+                卡片标签: [{ kind: 'route', label: '山林' }],
+              }),
+              '预览·大势': jiyiItem({
+                因由: '津渡·预览大势：里程碑标签',
+                卡片标签: [{ kind: 'milestone', label: '大势' }],
+              }),
+            },
+            支汊: {
+              '预览·收束': jiyiItem({
+                因由: '支汊·预览收束：结局收束标签（应与路线预判高亮）',
+                卡片标签: [{ kind: 'ending', label: '收束·一统天下' }],
+              }),
+              '预览·阻局': jiyiItem({
+                因由: '支汊·预览阻局：阻断型标签',
+                卡片标签: [{ kind: 'block', label: '阻·勤王失利' }],
+              }),
+              '预览·命途': jiyiItem({
+                因由: '支汊·预览命途：命途方向标签',
+                卡片标签: [{ kind: 'fate', label: '仕进' }],
+              }),
+              '预览·择一': jiyiItem({
+                因由: '支汊·预览择一：互斥组标签',
+                卡片标签: [{ kind: 'mutex', label: '择一' }],
+              }),
+              '预览·新逢': jiyiItem({
+                因由: '支汊·预览新逢：相关人物未登场时自动生成 meet 标签',
+                相关人物: '卢氏',
+                卡片标签: [],
+              }),
+            },
+          },
+        },
+      },
+      newEvents: {
+        世界与剧情: {
+          行程: 146,
+          当前地点: '寿春·夜市',
+          当前互动角色: '白氏',
+          当前场景角色: '白氏、王玄姬',
+          已终局: false,
+          路线预判: { 倾向: '潜龙入洛', 主导: '潜龙', 匹配度: 68, id: 'preview-new-events' },
+          天时: { 显示: '嘉平元年七月中旬·夜' },
+        },
+        主角: { 当前位置: '寿春·夜市', 当前状态: '检视新增支汊事件卡片' },
+        主角势力: { 官爵: '大将军府掾属', 阵营: '曹爽', 部曲: 80, 根基: '淮南寿春' },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              王府误笺: jiyiItem({
+                因由: '支汊·王府误笺：王府误递一封女眷私笺，王玄姬疑你窥私，白氏却认出商路暗记。',
+                火急: 2,
+                相关人物: '王玄姬、白氏、王令君',
+                建议地点: '淮南·王府',
+                开启行程: 42,
+                截止行程: 58,
+                目标: {
+                  目标1: '当面还笺，先向王玄姬说明误递原委',
+                  目标2: '请白氏辨认笺角暗记，分清私情还是军情',
+                  目标3: '决定焚笺保名声，或留线追查寿春内外勾连',
+                },
+                选项: {
+                  目标1: '亲往王府还笺，先把误递的来龙去脉讲清。',
+                  目标2: '请白氏看一眼笺角暗记，分辨这是私情还是军情。',
+                  目标3: '在王玄姬面前定夺，是焚笺保名声，还是留线追查。',
+                },
+              }),
+              白氏夜市: jiyiItem({
+                因由: '支汊·白氏夜市：寿春夜市商队歇灯，白氏以玩笑探底，王玄姬暗看你如何处置私情。',
+                火急: 1,
+                相关人物: '白氏、王玄姬',
+                建议地点: '寿春·夜市',
+                开启行程: 146,
+                截止行程: 164,
+                目标: {
+                  目标1: '夜访白氏商队，确认她为何故意邀你避开正厅',
+                  目标2: '在玩笑与试探里听出商路、私情和王氏耳目的边界',
+                  目标3: '决定只谈公事，还是留下可延续的外室暗线',
+                },
+                选项: {
+                  目标1: '夜去寿春市口见白氏，问她为何故意避开正厅。',
+                  目标2: '听她玩笑里的试探，也看王玄姬是否已察觉。',
+                  目标3: '把关系压回公事，或留下一个能延续的外室暗线。',
+                },
+              }),
+              江东试香: jiyiItem({
+                因由: '支汊·江东试香：江东旧香送入东宫，潘淑借香试你心意，孙鲁班旁观不肯放过破绽。',
+                火急: 2,
+                相关人物: '潘淑、孙鲁班',
+                建议地点: '建业·东宫',
+                开启行程: 252,
+                截止行程: 266,
+                目标: {
+                  目标1: '入东宫辨香，先弄清潘淑为何借旧香相邀',
+                  目标2: '应对孙鲁班旁观盘问，分清情意、权术和江东旧怨',
+                  目标3: '决定公开抬举、私下安抚，或暂缓纳入后宫',
+                },
+                选项: {
+                  目标1: '入东宫辨那一缕江东旧香，问清潘淑为何相邀。',
+                  目标2: '当着孙鲁班的面应答，别让情意和权术混成把柄。',
+                  目标3: '定下对潘淑的处置：公开抬举、私下安抚，或暂缓名分。',
+                },
+              }),
+              后苑争席: jiyiItem({
+                因由: '支汊·后苑争席：后苑席位引出名分争执，袁夫人与王夫人都借潘淑试探新主家法。',
+                火急: 2,
+                相关人物: '袁夫人、王夫人、潘淑',
+                建议地点: '建业·后苑',
+                开启行程: 254,
+                截止行程: 270,
+                目标: {
+                  目标1: '赶到后苑，先分清争的是席位、宠爱还是旧吴名分',
+                  目标2: '分别听袁夫人、王夫人与潘淑陈情，压住后宫流言',
+                  目标3: '定下家法和安置次序，避免私情变成宫闱明争',
+                },
+                选项: {
+                  目标1: '去后苑看这场争席，先分清她们争的到底是什么。',
+                  目标2: '分别听袁夫人、王夫人与潘淑陈情，先压住流言。',
+                  目标3: '定下家法和安置次序，别让私情变成宫闱明争。',
+                },
+              }),
+            },
+          },
+          邸报: { 寿春: '寿春夜市商队往来，王府女眷与商路消息偶有交错。' },
+          里巷: { 私语: '坊间有人议论，府中名分、人情与暗线最难分清。' },
+        },
+        群芳录: {
+          白氏: {
+            是否登场: true,
+            当前位置: '寿春·夜市',
+            好感度: 42,
+            好感度上限: 100,
+            服饰: '夜市素裙，外披商队薄斗篷',
+            外貌: '',
+            当前状态: '借玩笑试探分寸',
+            心里想法: '他若只谈公事，倒也未必无趣。',
+            心情: '含笑',
+            与user关系: '相识',
+            有孕: false,
+            子嗣数: 0,
+          },
+          王玄姬: {
+            是否登场: true,
+            当前位置: '寿春·夜市',
+            好感度: 18,
+            好感度上限: 100,
+            服饰: '便服遮面',
+            外貌: '',
+            当前状态: '暗中观察你如何处置私情',
+            心里想法: '这人若轻浮，姐姐不可不防。',
+            心情: '审视',
+            与user关系: '王氏姻亲',
+            有孕: false,
+            子嗣数: 0,
+          },
+        },
+      },
+      tasks: {
+        世界与剧情: {
+          行程: 22,
+          当前地点: '预览·多任务',
+          已终局: false,
+          天时: { 显示: '景初三年·任务预览' },
+        },
+        主角: { 当前位置: '预览场景', 当前状态: '检视接取/完成/放弃/逾期' },
+        任务录: {
+          当前: {
+            兄困清河: {
+              id: '兄困清河',
+              类型: '津渡',
+              状态: '进行中',
+              开始行程: 6,
+              截止行程: 30,
+              因由: '津渡·兄困清河：兄长陷囹圄于清河驿城',
+              火急: 4,
+              相关人物: '卢氏、张氏',
+              建议地点: '清河郡·驿城',
+              目标: {
+                目标1: { 内容: '赶赴清河驿城', 选项: '赶往清河驿城，打听兄长秦宽陷在何处。', 完成: true },
+                目标2: { 内容: '查明秦宽被困缘由', 选项: '往驿城衙门客栈打听，查清兄长被困缘由。', 完成: false },
+                目标3: { 内容: '救出秦宽或定下明确处置', 选项: '出资疏通关节，先把兄长捞出，再论后续。', 完成: false },
+              },
+              演完写入: { 命途标签: ['仕进'] },
+            },
+            朝云舞剑: {
+              id: '朝云舞剑',
+              类型: '支汊',
+              状态: '进行中',
+              开始行程: 20,
+              截止行程: 28,
+              因由: '支汊·朝云舞剑：名伶与秦府缘分初起',
+              火急: 3,
+              相关人物: '朝云',
+              建议地点: '洛阳·曹府',
+              目标: {
+                目标1: { 内容: '观剑舞', 选项: '静观朝云舞剑，先看她身法路数。', 完成: true },
+                目标2: { 内容: '与朝云应答', 选项: '上前与朝云应答，试探她心意。', 完成: true },
+                目标3: { 内容: '收束相识', 选项: '择日再访，把相识之事收束妥当。', 完成: false },
+              },
+              演完写入: {},
+            },
+            逾期待删: {
+              id: '逾期待删',
+              类型: '支汊',
+              状态: '进行中',
+              开始行程: 10,
+              截止行程: 18,
+              因由: '支汊·逾期待删：行程已超过截止，应自动标为已失败',
+              火急: 2,
+              建议地点: '预览',
+              目标: { 目标1: { 内容: '示例目标', 完成: false } },
+              演完写入: {},
+            },
+          },
+          已放弃: {
+            嫂子劝仕: { 行程: 8, 因由: '支汊·嫂子劝仕：已放弃不可再接' },
+          },
+        },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              嫂子劝仕: jiyiItem({
+                因由: '支汊·嫂子劝仕：应显示「已放弃，不可再接」',
+                相关人物: '张氏',
+                开启行程: 3,
+                截止行程: 10,
+              }),
+              麦田董氏: jiyiItem({
+                因由: '支汊·麦田董氏：可再接的支线示例',
+                相关人物: '董氏',
+                开启行程: 1,
+                截止行程: 12,
+                卡片标签: [{ kind: 'fate', label: '早隐' }],
+              }),
+            },
+          },
+        },
+      },
+      jiajuan: {
+        世界与剧情: {
+          行程: 132,
+          当前地点: '洛阳·秦府内院',
+          已终局: false,
+          天时: { 显示: '景初五年·家眷预览' },
+        },
+        主角: {
+          当前位置: '洛阳·秦府',
+          当前状态: '内闱名分已定，子嗣渐长',
+        },
+        主角势力: {
+          官爵: '大将军掾',
+          阵营: '勤王系',
+          部曲: 1200,
+          根基: '洛阳秦府',
+        },
+        房名次: {
+          王令君: { 位分: '正室' },
+          羊徽瑜: { 位分: '侧室' },
+          朝云: { 位分: '近侍' },
+          费氏: { 位分: '妾室' },
+          卢氏: { 位分: '外室' },
+          隐慈: { 位分: '婢妾' },
+        },
+        子嗣: {
+          秦曜: { 男女: '男', 春秋: 9, 生母: '王令君', 孺慕: 78 },
+          秦婉: { 男女: '女', 春秋: 6, 生母: '羊徽瑜', 孺慕: 92 },
+          秦初: { 男女: '男', 春秋: 3, 生母: '费氏', 孺慕: 54 },
+          秦宁: { 男女: '女', 春秋: 1, 生母: '王令君', 孺慕: 41 },
+        },
+        风闻录: {
+          机宜: { 津渡: {}, 支汊: {} },
+          邸报: { 册封: '大将军府奏请册立正室，诏可。' },
+          里巷: { 洛阳: '秦府内院张灯，传闻王氏嫡子将入学宫。' },
+        },
+        履历: {
+          '128': { 时间: '景初五年春', 地点: '洛阳·秦府', 事迹: '册立王令君为正室，羊徽瑜为侧室。' },
+          '130': { 时间: '景初五年夏', 地点: '洛阳·秦府', 事迹: '嫡子秦曜入家学，婉娘随母习女红。' },
+        },
+      },
+      jiyiCard: {
+        世界与剧情: {
+          行程: 8,
+          当前地点: '平原郡·秦家庄',
+          已终局: false,
+          天时: { 显示: '景初三年·机宜卡片' },
+        },
+        主角: { 当前位置: '平原郡·秦家庄', 当前状态: '检视机宜卡片去重布局' },
+        群芳录: {
+          董氏: {
+            是否登场: false,
+            当前位置: '平原郡',
+            好感度: 20,
+            好感度上限: 100,
+            与user关系: '乡谊',
+          },
+          王康: { 是否登场: false, 当前位置: '清河', 好感度: 0, 好感度上限: 100 },
+        },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              董氏报恩: {
+                因由: '支汊·董氏报恩：王康携家小登门，诉秦府旧恩；董氏在侧传话，盼你有所回应。',
+                火急: 2,
+                相关人物: '董氏、王康',
+                开启行程: 5,
+                截止行程: 12,
+                目标: {
+                  目标1: '董氏登门报恩',
+                  目标2: '听王康一家与秦府旧恩',
+                  目标3: '收下心意或礼送出门',
+                },
+                演完写入: {},
+              },
+            },
+          },
+        },
+      },
+      luoyang: {
+        世界与剧情: {
+          行程: 24,
+          当前地点: '洛阳·大将军府',
+          当前互动角色: '朝云',
+          当前场景角色: '朝云、曹爽幕僚',
+          已终局: false,
+          天时: { 月: '九', 旬: '中旬', 时辰: '夜', 显示: '景初三年九月中旬·夜' },
+        },
+        主角: {
+          当前位置: '洛阳·大将军府·堂会',
+          当前状态: '应辟入洛，随府宴饮观剑舞',
+        },
+        主角势力: {
+          官爵: '大将军府掾',
+          阵营: '曹爽',
+          部曲: 0,
+          根基: '洛阳寓所',
+        },
+        履历: {
+          '001': '景初三年·平原郡·应召入仕',
+          '002': '景初三年·清河郡·兄困清河',
+          '003': '景初三年·洛阳·入大将军府',
+        },
+        群芳录: {
+          朝云: {
+            是否登场: true,
+            当前位置: '洛阳·大将军府',
+            好感度: 12,
+            好感度上限: 100,
+            服饰: '月白色窄衣裙，腰系紧带',
+            外貌: '婀娜多姿，柔韧似柳',
+            当前状态: '剑舞既毕，候人开口',
+            心里想法: '这位新入府的掾属，可愿赐句？',
+            心情: '期待',
+            与user关系: '陌路',
+            有孕: false,
+            子嗣数: 0,
+          },
+        },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              朝云舞剑: {
+                因由: '支汊·朝云舞剑：朝云舞剑惊艳，名伶与秦府缘分初起',
+                火急: 4,
+                相关人物: '朝云',
+                建议地点: '洛阳·曹府',
+                开启行程: 20,
+                截止行程: 28,
+                目标: {
+                  目标1: '前往洛阳·曹府',
+                  目标2: '与朝云推进此事',
+                  目标3: '收束朝云舞剑惊艳',
+                },
+                演完写入: { 命途印记: { 朝云: '相识' } },
+                卡片标签: [{ kind: 'meet', label: '新逢·朝云' }],
+              },
+            },
+          },
+          邸报: {
+            大将军府: '曹爽开府置僚，洛阳士子多往投幕。',
+            淮南: '王凌镇扬州，江淮间军情日紧。',
+          },
+          里巷: {
+            平康坊: '坊间传闻，有剑舞名伎今夜毛遂自荐，为某新入府掾属献舞。',
+          },
+        },
+      },
+      pingyuan: {
+        世界与剧情: {
+          行程: 1,
+          当前地点: '平原郡·秦家庄',
+          当前互动角色: '张氏',
+          当前场景角色: '张氏',
+          已终局: false,
+          天时: { 月: '五', 旬: '上旬', 时辰: '暮', 显示: '景初三年五月上旬·暮' },
+        },
+        主角: {
+          当前位置: '秦家庄·内院',
+          当前状态: '守孝中，晚膳后与嫂子说话',
+        },
+        主角势力: { 官爵: '', 阵营: '无', 部曲: 0, 根基: '平原秦氏庄园' },
+        履历: {},
+        群芳录: {
+          张氏: {
+            是否登场: true,
+            当前位置: '平原郡·秦家庄',
+            好感度: 50,
+            好感度上限: 100,
+            服饰: '素衣，头发上系着一块白布巾',
+            外貌: '脸饱满圆润，身材颇为丰腴',
+            当前状态: '端膳劝小叔',
+            心里想法: '这孩子，总得有人推他一把。',
+            心情: '焦急',
+            与user关系: '嫂嫂',
+            有孕: false,
+            子嗣数: 0,
+          },
+        },
+        风闻录: {
+          机宜: {
+            津渡: {},
+            支汊: {
+              嫂子劝仕: {
+                因由: '支汊·嫂子劝仕：嫂子张氏劝小叔出仕，守孝与前途之争',
+                火急: 2,
+                相关人物: '张氏',
+                建议地点: '秦家庄',
+                开启行程: 3,
+                截止行程: 8,
+                目标: {
+                  目标1: '前往秦家庄',
+                  目标2: '与张氏谈明此事',
+                  目标3: '收束嫂子张氏劝小叔出仕',
+                },
+                演完写入: {},
+              },
+            },
+          },
+          邸报: {},
+          里巷: { 秦家庄: '何尚书礼聘风声又起，庄外时有青衣人观望。' },
+        },
+      },
+      heavy: (function () {
+        var lvli = {};
+        var dibao = {};
+        var lixiang = {};
+        for (var i = 1; i <= 80; i++) {
+          var k = String(i).padStart(3, '0');
+          lvli[k] = '正始' + Math.ceil(i / 12) + '年·洛阳·节点' + i + '：长局压测履历条目。';
+        }
+        for (var j = 1; j <= 35; j++) {
+          var dk = '潮汛_' + String(j).padStart(2, '0');
+          var lk = '坊间_' + String(j).padStart(2, '0');
+          dibao[dk] = '邸报·第' + j + '则：朝局风动，边关军情频传。';
+          lixiang[lk] = '坊间·第' + j + '则：酒肆里巷议论天下。';
+        }
+        return {
+          世界与剧情: {
+            行程: 200,
+            当前地点: '洛阳·长局压测',
+            已终局: false,
+            天时: { 显示: '正始十年·长局压测' },
+          },
+          主角: { 当前位置: '洛阳', 当前状态: '检视历事/风闻折叠与倒序' },
+          履历: lvli,
+          风闻录: { 邸报: dibao, 里巷: lixiang },
+        };
+      })(),
+    };
+
+    var currentScene = queryScene || sessionStorage.getItem(SCENE_KEY) || 'sendopts';
+    if (!SCENES[currentScene]) currentScene = 'sendopts';
+    var currentTab = queryTab || sessionStorage.getItem(TAB_KEY) || 'fengxin';
+    if (!['tianji', 'fengxin', 'fengwen', 'lishi', 'fangming', 'fende'].includes(currentTab)) currentTab = 'fengxin';
+    var frame = document.getElementById('frame');
+
+    function markPreviewBarActive() {
+      if (previewStage) previewStage.setAttribute('data-tab', currentTab);
+      document.querySelectorAll('.scene').forEach(function (btn) {
+        btn.classList.toggle('on', btn.getAttribute('data-scene') === currentScene);
+      });
+      document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        btn.classList.toggle('on', btn.getAttribute('data-tab') === currentTab);
+      });
+      document.querySelectorAll('.viewport-btn').forEach(function (btn) {
+        btn.classList.toggle('on', btn.getAttribute('data-viewport') === currentViewport);
+      });
+    }
+
+    function updateViewportHint() {
+      if (!viewportHint || !frameWrap) return;
+      var preset = VIEWPORTS[currentViewport] || VIEWPORTS.desktop;
+      var rect = frameWrap.getBoundingClientRect();
+      var width = Math.round(rect.width);
+      var height = Math.round(rect.height);
+      viewportHint.textContent = preset.label + ' · 实际 ' + width + '×' + height;
+    }
+
+
+    function applyViewport(save) {
+      if (!VIEWPORTS[currentViewport]) currentViewport = 'desktop';
+      if (previewStage) previewStage.setAttribute('data-viewport', currentViewport);
+      if (save) sessionStorage.setItem(VIEWPORT_KEY, currentViewport);
+      markPreviewBarActive();
+      requestAnimationFrame(updateViewportHint);
+    }
+
+    function injectPreviewStat(reset) {
+      var stat = buildStat(currentScene);
+      var json = JSON.stringify(stat);
+      sessionStorage.setItem(PREVIEW_KEY, json);
+      sessionStorage.setItem(TAB_KEY, currentTab);
+      sessionStorage.setItem(SCENE_KEY, currentScene);
+      sessionStorage.setItem('__dwf_preview_user_name__', '仲明');
+      try {
+        var w = frame.contentWindow;
+        if (!w) return false;
+        if (reset) {
+          w.__DWF_PREVIEW_STAT__ = stat;
+          w.sessionStorage.setItem(PREVIEW_KEY, json);
+          w.sessionStorage.setItem(TAB_KEY, currentTab);
+          w.sessionStorage.setItem('__dwf_preview_user_name__', '仲明');
+        }
+        if (w.DwfMvu) {
+          if (reset && w.DwfMvu.invalidateMvuReadCaches) w.DwfMvu.invalidateMvuReadCaches();
+          if (w.DwfMvu.switchMainPanel) {
+            var live = w.DwfMvu.getStatData ? w.DwfMvu.getStatData() : stat;
+            w.DwfMvu.switchMainPanel(currentTab, reset ? stat : live);
+            return true;
+          }
+        }
+      } catch (e) {
+        console.error('[preview] 注入测试数据失败', e);
+      }
+      return false;
+    }
+
+    function tryBootPreviewUi() {
+      return injectPreviewStat(false);
+    }
+
+    function buildStat(sceneKey) {
+      var scene = SCENES[sceneKey] || SCENES.tags;
+      var stat = JSON.parse(JSON.stringify(BASE));
+      Object.keys(scene).forEach(function (k) {
+        if (k === '风闻录' && scene[k]) {
+          stat[k] = Object.assign({}, stat[k] || {}, scene[k]);
+          if (scene[k].机宜) {
+            stat[k].机宜 = Object.assign({}, stat[k].机宜 || {}, scene[k].机宜);
+            stat[k].机宜.津渡 = Object.assign({}, (stat[k].机宜 || {}).津渡, (scene[k].机宜 || {}).津渡 || {});
+            stat[k].机宜.支汊 = Object.assign({}, (stat[k].机宜 || {}).支汊, (scene[k].机宜 || {}).支汊 || {});
+          }
+        } else if (k === '任务录' && scene[k]) {
+          stat[k] = Object.assign({}, stat[k] || {}, scene[k]);
+        } else if (k === '房名次' && scene[k]) {
+          stat[k] = Object.assign({}, stat[k] || {}, scene[k]);
+        } else if (k === '子嗣' && scene[k]) {
+          stat[k] = Object.assign({}, stat[k] || {}, scene[k]);
+        } else if (k === '履历' && scene[k]) {
+          stat[k] = Object.assign({}, stat[k] || {}, scene[k]);
+        } else {
+          stat[k] = scene[k];
+        }
+      });
+      return stat;
+    }
+
+    function persistAndReload() {
+      sessionStorage.setItem(SCENE_KEY, currentScene);
+      sessionStorage.setItem(TAB_KEY, currentTab);
+      sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(buildStat(currentScene)));
+      sessionStorage.setItem('__dwf_preview_user_name__', '仲明');
+      markPreviewBarActive();
+      frame.src = 'index.html?dwf_preview=1&embed=1&_=' + Date.now();
+    }
+
+    markPreviewBarActive();
+    applyViewport(false);
+    sessionStorage.setItem(SCENE_KEY, currentScene);
+    sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(buildStat(currentScene)));
+    sessionStorage.setItem(TAB_KEY, currentTab);
+    sessionStorage.setItem('__dwf_preview_user_name__', '仲明');
+    frame.src = 'index.html?dwf_preview=1&embed=1&_=' + Date.now();
+
+    frame.addEventListener('load', function () {
+      injectPreviewStat(true);
+      requestAnimationFrame(updateViewportHint);
+      var tries = 0;
+      var bootTimer = setInterval(function () {
+        var booted = tryBootPreviewUi();
+        updateViewportHint();
+        if (booted || ++tries >= 20) clearInterval(bootTimer);
+      }, 100);
+      try {
+        var w = frame.contentWindow;
+        if (!w || !w.DwfMvu) {
+          console.warn('[preview] iframe 未加载 DwfMvu，请运行：node scripts/compose_dwf_status.mjs');
+        }
+      } catch (e) {
+        console.error('[preview] iframe 访问失败', e);
+      }
+    });
+
+    document.querySelectorAll('.scene').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.scene').forEach(function (b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+        currentScene = btn.getAttribute('data-scene');
+        persistAndReload();
+      });
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('on'); });
+        btn.classList.add('on');
+        currentTab = btn.getAttribute('data-tab');
+        persistAndReload();
+      });
+    });
+
+    document.querySelectorAll('.viewport-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentViewport = btn.getAttribute('data-viewport') || 'desktop';
+        applyViewport(true);
+      });
+    });
+
+    window.addEventListener('resize', function () {
+      requestAnimationFrame(updateViewportHint);
+    });
+    if (window.ResizeObserver && frameWrap) {
+      new ResizeObserver(function () {
+        updateViewportHint();
+      }).observe(frameWrap);
+    }
+  </script>
+</body>
+</html>

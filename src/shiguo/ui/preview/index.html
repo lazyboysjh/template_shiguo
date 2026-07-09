@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>十国千娇 · 预览控制台</title>
+  <style>
+    :root {
+      --bg: #0b0a08;
+      --panel: rgba(24, 21, 17, 0.92);
+      --panel-soft: rgba(38, 31, 24, 0.72);
+      --border: rgba(201, 168, 116, 0.22);
+      --border-strong: rgba(221, 188, 132, 0.45);
+      --text: #f2eadf;
+      --text-soft: #c2b39e;
+      --accent: #c8a874;
+      --accent-soft: rgba(200, 168, 116, 0.18);
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+      --bg-img: url('https://testingcf.jsdelivr.net/gh/lazyboysjh/image@main/20260605013906916.png');
+      --shell-bg: linear-gradient(145deg, rgba(15,15,18,0.75), rgba(5,5,8,0.85)), var(--bg-img) center/cover no-repeat fixed;
+      --inset-bg: rgba(10,10,12,0.4);
+      --inset-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 999px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        linear-gradient(145deg, rgba(15,15,18,0.72), rgba(5,5,8,0.9)),
+        var(--bg-img) center/cover no-repeat fixed,
+        radial-gradient(circle at top, rgba(200, 168, 116, 0.12), transparent 34%),
+        linear-gradient(180deg, #120f0b 0%, #0b0a08 100%);
+      color: var(--text);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Serif SC", serif;
+    }
+
+    body {
+      padding: 18px;
+    }
+
+    .shell {
+      max-width: 1480px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      padding: 18px 20px;
+      background: var(--shell-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .title {
+      display: grid;
+      gap: 6px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.24em;
+      color: var(--accent);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 38px);
+      line-height: 1.05;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+    }
+
+    .segmented {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 999px;
+      background: var(--inset-bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--inset-shadow);
+    }
+
+    .segmented button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-soft);
+      border-radius: var(--radius-sm);
+      padding: 9px 16px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 14px;
+      transition: 160ms ease;
+      white-space: nowrap;
+    }
+
+    .segmented button:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .segmented button.is-active {
+      color: #20170d;
+      background: linear-gradient(180deg, #dfc391, #bf9860);
+      border-color: rgba(255, 248, 234, 0.4);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 18px rgba(0, 0, 0, 0.24);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stage,
+    .sidebar {
+      background: var(--shell-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .stage {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .stage-meta,
+    .sidebar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .stage-meta strong,
+    .sidebar-head strong {
+      font-size: 16px;
+      letter-spacing: 0.06em;
+    }
+
+    .hint {
+      color: var(--text-soft);
+      font-size: 13px;
+    }
+
+    .frame-wrap {
+      position: relative;
+      min-height: 560px;
+      height: min(74vh, 940px);
+      padding: 18px;
+      border-radius: calc(var(--radius-lg) - 4px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: var(--inset-bg);
+      box-shadow: var(--inset-shadow);
+      overflow: hidden;
+    }
+
+    .stage-canvas {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .device {
+      position: absolute;
+      top: 0;
+      left: 0;
+      box-sizing: content-box;
+      width: var(--device-width);
+      padding: 14px;
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(42,36,29,.96), rgba(23,18,14,.98));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 24px 60px rgba(0,0,0,0.42);
+      transform-origin: top left;
+      transition: transform 180ms ease;
+    }
+
+    .device::before {
+      content: "";
+      position: absolute;
+      top: 7px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 34%;
+      max-width: 140px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .device.device-pc::before {
+      width: 18%;
+      height: 4px;
+      top: 8px;
+    }
+
+    .screen {
+      width: var(--device-width);
+      height: var(--device-height);
+      margin: 0 auto;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      background: transparent;
+    }
+
+    .sidebar {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .thumbs {
+      display: grid;
+      gap: 12px;
+    }
+
+    .thumb {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: 160ms ease;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.26);
+    }
+
+    .thumb:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .thumb.is-active {
+      border-color: var(--border-strong);
+      box-shadow: inset 0 0 0 1px rgba(200, 168, 116, 0.18);
+      background: linear-gradient(180deg, rgba(200, 168, 116, 0.12), rgba(255, 255, 255, 0.02));
+    }
+
+    .thumb-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .thumb-name {
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .thumb-size {
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .thumb-preview {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: var(--inset-bg);
+      height: 180px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      box-shadow: var(--inset-shadow);
+    }
+
+    .thumb-preview iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+      pointer-events: none;
+      border: 0;
+      background: transparent;
+    }
+
+    .tip {
+      display: none;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.025);
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-items: start;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+
+      .toolbar,
+      .stage,
+      .sidebar {
+        padding: 14px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .frame-wrap {
+        min-height: 420px;
+        height: min(68vh, 620px);
+        padding: 10px;
+      }
+
+      .device {
+        padding: 8px;
+        border-radius: 22px;
+      }
+
+      .thumbs {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(220px, 72vw);
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 6px;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .thumb {
+        scroll-snap-align: start;
+      }
+
+      .sidebar {
+        overflow: hidden;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="toolbar">
+      <div class="title">
+        <div class="eyebrow">十国预览台</div>
+        <h1>十国千娇预览控制台</h1>
+        <div class="subtitle">切换封面与状态栏，并查看手机、平板、PC 三种视口效果。</div>
+      </div>
+      <div class="controls">
+        <div class="segmented" id="pageTabs">
+          <button class="is-active" type="button" data-page="cover">封面</button>
+          <button type="button" data-page="status">状态栏</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="stage">
+        <div class="stage-meta">
+          <div>
+            <strong id="stageTitle">封面 · 手机</strong>
+            <div class="hint" id="stageHint">390 × 844</div>
+          </div>
+          <div class="segmented" id="deviceTabs">
+            <button class="is-active" type="button" data-device="mobile">手机</button>
+            <button type="button" data-device="tablet">平板</button>
+            <button type="button" data-device="pc">PC</button>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="stage-canvas" id="stageCanvas">
+            <div class="device" id="deviceShell">
+              <div class="screen" id="screen">
+                <iframe id="mainFrame" title="主预览"></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <strong>设备缩略预览</strong>
+          <span class="hint">点击切主视图</span>
+        </div>
+
+        <div class="thumbs" id="thumbs"></div>
+
+        <div class="tip">
+          这里专门拿来看手机、平板、PC 三档尺寸。封面和状态栏切着看，哪一端挤、空、乱，一眼就能抓出来。
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <script>
+    const PAGES = {
+      cover: { label: "封面", src: "../cover/index.html" },
+      status: { label: "状态栏", src: "../status/index.html" },
+    };
+
+    const DEVICES = {
+      mobile: { label: "手机", width: 390, height: 844 },
+      tablet: { label: "平板", width: 820, height: 1180 },
+      pc: { label: "PC", width: 1440, height: 1024 },
+    };
+
+    let currentPage = "cover";
+    let currentDevice = "mobile";
+
+    const pageTabs = document.getElementById("pageTabs");
+    const deviceTabs = document.getElementById("deviceTabs");
+    const stageTitle = document.getElementById("stageTitle");
+    const stageHint = document.getElementById("stageHint");
+    const mainFrame = document.getElementById("mainFrame");
+    const stageCanvas = document.getElementById("stageCanvas");
+    const deviceShell = document.getElementById("deviceShell");
+    const screen = document.getElementById("screen");
+    const thumbs = document.getElementById("thumbs");
+    const cacheKey = `v=${Date.now()}`;
+
+    function updateButtonState(container, value, key) {
+      container.querySelectorAll("button").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset[key] === value);
+      });
+    }
+
+    function fitMainDevice() {
+      deviceShell.style.transform = "none";
+      const shellWidth = deviceShell.offsetWidth;
+      const shellHeight = deviceShell.offsetHeight;
+      const scale = Math.min(
+        stageCanvas.clientWidth / shellWidth,
+        stageCanvas.clientHeight / shellHeight,
+        1
+      );
+      const left = Math.max((stageCanvas.clientWidth - shellWidth * scale) / 2, 0);
+      const top = Math.max((stageCanvas.clientHeight - shellHeight * scale) / 2, 0);
+      deviceShell.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+    }
+
+    function renderMainFrame() {
+      const page = PAGES[currentPage];
+      const device = DEVICES[currentDevice];
+      deviceShell.className = `device device-${currentDevice}`;
+      deviceShell.style.setProperty("--device-width", `${device.width}px`);
+      deviceShell.style.setProperty("--device-height", `${device.height}px`);
+      screen.style.setProperty("--device-width", `${device.width}px`);
+      screen.style.setProperty("--device-height", `${device.height}px`);
+      const nextSrc = `${page.src}?${cacheKey}`;
+      if (mainFrame.getAttribute("src") !== nextSrc) {
+        mainFrame.src = nextSrc;
+      }
+      stageTitle.textContent = `${page.label} · ${device.label}`;
+      stageHint.textContent = `${device.width} × ${device.height}`;
+      updateButtonState(pageTabs, currentPage, "page");
+      updateButtonState(deviceTabs, currentDevice, "device");
+      requestAnimationFrame(fitMainDevice);
+    }
+
+    function createThumb(deviceKey) {
+      const device = DEVICES[deviceKey];
+      const page = PAGES[currentPage];
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "thumb";
+      card.dataset.device = deviceKey;
+      card.innerHTML = `
+        <div class="thumb-head">
+          <span class="thumb-name">${device.label}</span>
+          <span class="thumb-size">${device.width} × ${device.height}</span>
+        </div>
+        <div class="thumb-preview">
+          <iframe title="${device.label}缩略预览"></iframe>
+        </div>
+      `;
+
+      const iframe = card.querySelector("iframe");
+      iframe.dataset.device = deviceKey;
+      iframe.style.width = `${device.width}px`;
+      iframe.style.height = `${device.height}px`;
+      iframe.src = `${page.src}?${cacheKey}#${deviceKey}`;
+      card.classList.toggle("is-active", deviceKey === currentDevice);
+      card.addEventListener("click", () => {
+        currentDevice = deviceKey;
+        render();
+      });
+      return card;
+    }
+
+    function syncThumbScales() {
+      thumbs.querySelectorAll(".thumb").forEach((card) => {
+        const device = DEVICES[card.dataset.device];
+        const preview = card.querySelector(".thumb-preview");
+        const iframe = card.querySelector("iframe");
+        const scale = Math.min(
+          preview.clientWidth / device.width,
+          preview.clientHeight / device.height
+        );
+        const left = Math.max((preview.clientWidth - device.width * scale) / 2, 0);
+        const top = Math.max((preview.clientHeight - device.height * scale) / 2, 0);
+        iframe.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+      });
+    }
+
+    function renderThumbs() {
+      thumbs.innerHTML = "";
+      Object.keys(DEVICES).forEach((deviceKey) => {
+        thumbs.appendChild(createThumb(deviceKey));
+      });
+      requestAnimationFrame(syncThumbScales);
+    }
+
+    function render() {
+      renderMainFrame();
+      renderThumbs();
+    }
+
+    pageTabs.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-page]");
+      if (!button) return;
+      currentPage = button.dataset.page;
+      render();
+    });
+
+    deviceTabs.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-device]");
+      if (!button) return;
+      currentDevice = button.dataset.device;
+      render();
+    });
+
+    window.addEventListener("resize", () => {
+      fitMainDevice();
+      syncThumbScales();
+    });
+    render();
+  </script>
+</body>
+</html>
